@@ -1,89 +1,92 @@
 <script lang="ts">
-	import Board from '#lib/components/Board.svelte';
-	import Controls from '#lib/components/Controls.svelte';
-	import EnemyPanel from '#lib/components/EnemyPanel.svelte';
-	import GameOver from '#lib/components/GameOver.svelte';
-	import PlayerBar from '#lib/components/PlayerBar.svelte';
-	import Readout from '#lib/components/Readout.svelte';
-	import Tray from '#lib/components/Tray.svelte';
-	import WeakSpot from '#lib/components/WeakSpot.svelte';
-	import { START_HP, WEAK_MULT } from '#lib/game/constants.js';
-	import { Game } from '#lib/game/game.svelte.js';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import type { RunSnapshot } from '#lib/game/snapshot.js';
+	import { clearRun, loadLeaderboard, loadRun } from '#lib/game/storage.js';
+	import { resolve } from '$app/paths';
 
-	const game = new Game();
+	let saved = $state<RunSnapshot | null>(null);
+	let bestRound = $state<number | null>(null);
+	let ready = $state(false);
+
+	onMount(async () => {
+		const [run, runs] = await Promise.all([loadRun(), loadLeaderboard()]);
+		saved = run;
+		bestRound = runs[0]?.round ?? null;
+		ready = true;
+	});
+
+	async function newRun() {
+		if (saved && !confirm('Abandon your saved run and start a new one?')) return;
+		await clearRun();
+		await goto(resolve('/play'));
+	}
 </script>
 
 <main>
-	<header>
-		<span>Round {game.round}</span>
-		<span>Best {game.best}</span>
-	</header>
-
-	<EnemyPanel
-		face={game.face}
-		traitName={game.trait.name}
-		traitText={game.trait.text}
-		hp={game.enemyHp}
-		maxHp={game.enemyMax}
-		turnsLeft={game.turnsLeft}
-	/>
-	<PlayerBar hp={game.playerHp} maxHp={START_HP} />
-
-	{#if game.target !== null}
-		<WeakSpot target={game.target} multiplier={WEAK_MULT} />
+	<h1>Math Chain</h1>
+	<p class="tagline">Build formulas. Beat the enemy.</p>
+	{#if bestRound !== null}
+		<p class="best">Best Round: {bestRound}</p>
 	{/if}
 
-	<p class="message">{game.message}</p>
-
-	<Tray tray={game.tray} onreturn={(i) => game.unpick(i)} />
-	<Readout formula={game.formulaText} status={game.status} hit={game.preview?.exact ?? false} />
-	<Controls
-		canAttack={game.canAttack}
-		canClear={game.canClear}
-		onattack={() => game.attack()}
-		onclear={() => game.clear()}
-	/>
-	<Board
-		board={game.board}
-		canPick={(cell) => game.canPick(cell)}
-		onpick={(cell) => game.pick(cell)}
-	/>
-
-	<p class="hint">
-		Tap a tray tile to return it and everything after it. The weak spot can always be reached using
-		− or ÷.
-	</p>
+	{#if ready}
+		<nav>
+			{#if saved}
+				<a class="btn primary" href={resolve('/play')}>Continue (Round {saved.round})</a>
+			{/if}
+			<button class="btn" class:primary={!saved} onclick={newRun}>New Game</button>
+			<a class="btn" href={resolve('/leaderboard')}>Leaderboard</a>
+		</nav>
+	{/if}
 </main>
-
-{#if game.gameOver}
-	<GameOver round={game.round} onrestart={() => game.restart()} />
-{/if}
 
 <style>
 	main {
 		max-width: 420px;
 		margin: 0 auto;
-		padding: calc(12px + env(safe-area-inset-top, 0px)) 12px
-			calc(12px + env(safe-area-inset-bottom, 0px));
+		padding: calc(64px + env(safe-area-inset-top, 0px)) 16px 16px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		text-align: center;
+	}
+	h1 {
+		margin: 0;
+		font-size: 2.2rem;
+	}
+	.tagline,
+	.best {
+		margin: 0;
+		color: var(--muted);
+	}
+	.best {
+		color: var(--accent);
+	}
+	nav {
+		width: 100%;
+		margin-top: 32px;
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
 	}
-	header {
-		display: flex;
-		justify-content: space-between;
-		font-weight: 600;
+	.btn {
+		display: block;
+		width: 100%;
+		min-height: 52px;
+		line-height: 52px;
+		padding: 0;
+		border: 0;
+		border-radius: 12px;
+		background: var(--slot-border);
+		color: #fff;
+		font-weight: 700;
+		font-size: 1rem;
+		text-decoration: none;
+		cursor: pointer;
 	}
-	.message {
-		margin: 0;
-		min-height: 2.4em;
-		font-size: 0.9rem;
-		color: #cfd4f5;
-	}
-	.hint {
-		margin: 0;
-		font-size: 0.75rem;
-		text-align: center;
-		color: var(--faint);
+	.btn.primary {
+		background: var(--danger);
 	}
 </style>

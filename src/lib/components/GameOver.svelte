@@ -1,17 +1,26 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
 	interface Props {
 		round: number;
+		bestHit: number;
+		bestFormula: string;
 		onrestart: () => void;
 	}
 
-	let { round, onrestart }: Props = $props();
+	let { round, bestHit, bestFormula, onrestart }: Props = $props();
 </script>
 
 <div class="overlay">
 	<div class="card">
 		<h2>Game over</h2>
 		<p>You reached round {round}.</p>
+		{#if bestHit > 0}
+			<small>Best hit: {bestHit} ({bestFormula})</small>
+		{/if}
 		<button onclick={onrestart}>Play again</button>
+		<a href={resolve('/leaderboard')}>Leaderboard</a>
+		<a href={resolve('/')}>Menu</a>
 	</div>
 </div>
 
@@ -31,7 +40,8 @@
 		text-align: center;
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
+		gap: 10px;
+		min-width: 240px;
 	}
 	h2,
 	p {
@@ -46,5 +56,10 @@
 		color: #fff;
 		background: var(--danger);
 		cursor: pointer;
+	}
+	a {
+		color: var(--muted);
+		text-decoration: none;
+		padding: 6px;
 	}
 </style>

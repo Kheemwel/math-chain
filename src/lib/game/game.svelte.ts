@@ -1,4 +1,4 @@
-import { createBoard, refillBoard } from './board';
+import { createBoard, makeNumberTile, makeOpTile, refillBoard } from './board';
 import { ENEMY_EVERY, HEAL_ON_WIN, START_HP, TRAY_MAX, WEAK_MULT } from './constants';
 import {
 	enemyDamage,
@@ -9,6 +9,7 @@ import {
 	type Trait
 } from './enemy';
 import { evaluate, type EvalResult } from './evaluator';
+import { SNAPSHOT_VERSION, type RunSnapshot } from './snapshot';
 import { pickTarget } from './target';
 import type { Cell, Rng, TileType, TrayItem } from './types';
 
@@ -20,13 +21,31 @@ export interface Preview {
 	exact: boolean;
 }
 
+export interface RunResult {
+	round: number;
+	bestHit: number;
+	bestFormula: string;
+}
+
+export interface GameOptions {
+	/** Resume a saved run instead of starting a new one. */
+	snapshot?: RunSnapshot;
+	/** Best round reached in earlier runs, shown in the header. */
+	bestEver?: number;
+	/** Called after every attack that leaves the run still going. */
+	onSave?: (snapshot: RunSnapshot) => void;
+	/** Called once when the player's HP reaches 0. */
+	onGameOver?: (result: RunResult) => void;
+}
+
 /**
  * The game's state and rules. Components display this and call its methods;
- * they never change the state directly. Rules that do not need reactivity
- * live in the plain modules next to this file.
+ * they never change the state directly. Saving is done through the callbacks
+ * in GameOptions, so this class does not depend on any storage.
  */
 export class Game {
 	#rng: Rng;
+	#options: GameOptions;
 
 	round = $state(1);
 	best = $state(1);
@@ -39,6 +58,9 @@ export class Game {
 	tray = $state<TrayItem[]>([]);
 	/** This turn's weak spot number, or null if none was found. */
 	target = $state<number | null>(null);
+	/** Highest single hit of this run, and the formula that made it. */
+	bestHit = $state(0);
+	bestFormula = $state('');
 
 	enemyMax = $derived(enemyMaxHp(this.round));
 	isBoss = $derived(isBossRound(this.round));
@@ -85,9 +107,12 @@ export class Game {
 	canAttack = $derived(!this.gameOver && this.preview !== null);
 	canClear = $derived(!this.gameOver && this.tray.length > 0);
 
-	constructor(rng: Rng = Math.random) {
+	constructor(rng: Rng = Math.random, options: GameOptions = {}) {
 		this.#rng = rng;
-		this.#newTurn();
+		this.#options = options;
+		if (options.snapshot) this.#restore(options.snapshot);
+		else this.#newTurn();
+		this.best = Math.max(options.bestEver ?? 1, this.round);
 	}
 
 	canPick(cell: Cell): boolean {
@@ -125,6 +150,12 @@ export class Game {
 		const preview = this.preview;
 		if (this.gameOver || !preview) return;
 
+		const formula = `${this.formulaText} = ${preview.raw}`;
+		if (preview.dmg > this.bestHit) {
+			this.bestHit = preview.dmg;
+			this.bestFormula = formula;
+		}
+
 		this.tray = []; // used tiles are gone; their cells stay empty until the refill
 		this.enemyHp = Math.max(0, this.enemyHp - preview.dmg);
 		let msg = preview.exact
@@ -151,6 +182,16 @@ export class Game {
 
 		this.message = msg;
 		this.#newTurn();
+
+		if (this.gameOver) {
+			this.#options.onGameOver?.({
+				round: this.round,
+				bestHit: this.bestHit,
+				bestFormula: this.bestFormula
+			});
+		} else {
+			this.#options.onSave?.(this.toSnapshot());
+		}
 	}
 
 	restart(): void {
@@ -158,11 +199,50 @@ export class Game {
 		this.playerHp = START_HP;
 		this.enemyHp = enemyMaxHp(1);
 		this.turnsLeft = ENEMY_EVERY;
+		this.bestHit = 0;
+		this.bestFormula = '';
 		this.tray = [];
 		for (const cell of this.board) cell.tile = null;
 		this.gameOver = false;
 		this.message = START_MESSAGE;
 		this.#newTurn();
+	}
+
+	/** Plain-data copy of the run, safe to store as JSON. */
+	toSnapshot(): RunSnapshot {
+		const tiles = this.board.map((cell) => cell.tile);
+		for (const item of this.tray) tiles[item.cellId] = item.tile; // tray tiles belong on the board
+		return {
+			version: SNAPSHOT_VERSION,
+			round: this.round,
+			playerHp: this.playerHp,
+			enemyHp: this.enemyHp,
+			turnsLeft: this.turnsLeft,
+			bestHit: this.bestHit,
+			bestFormula: this.bestFormula,
+			target: this.target,
+			board: tiles.map((tile) => {
+				if (!tile) throw new Error('Cannot save a board with empty cells.');
+				return tile.type === 'num'
+					? { type: 'num' as const, value: tile.value }
+					: { type: 'op' as const, value: tile.value };
+			})
+		};
+	}
+
+	#restore(s: RunSnapshot): void {
+		this.round = s.round;
+		this.playerHp = s.playerHp;
+		this.enemyHp = s.enemyHp;
+		this.turnsLeft = s.turnsLeft;
+		this.bestHit = s.bestHit;
+		this.bestFormula = s.bestFormula;
+		this.target = s.target;
+		s.board.forEach((tile, i) => {
+			this.board[i].tile =
+				tile.type === 'num' ? makeNumberTile(tile.value) : makeOpTile(tile.value);
+		});
+		this.message = `Welcome back. Continuing round ${s.round}.`;
 	}
 
 	/** Refills the board and picks a new weak spot. */
