@@ -16,6 +16,8 @@
 		"test": "npm run test:unit -- --run"
 	},
 	"devDependencies": {
+		"@capacitor/android": "^8.5.3",
+		"@capacitor/cli": "^8.5.3",
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-static": "^4.0.0",
 		"@sveltejs/kit": "^3.0.0",
@@ -26,6 +28,7 @@
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.19.0",
 		"globals": "^17.6.0",
+		"install": "^0.13.0",
 		"playwright": "^1.60.0",
 		"prettier": "^3.8.3",
 		"prettier-plugin-svelte": "^4.1.0",
@@ -40,5 +43,9 @@
 	"imports": {
 		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*"
+	},
+	"dependencies": {
+		"@capacitor/core": "^8.5.3",
+		"@capacitor/preferences": "^8.0.1"
 	}
 }
