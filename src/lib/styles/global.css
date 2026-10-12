@@ -1,0 +1,41 @@
+:root {
+	--bg: #14161f;
+	--panel: #1e2130;
+	--panel-border: #2c3045;
+	--text: #eef0ff;
+	--muted: #aab0d0;
+	--faint: #7e85a8;
+	--num: #2f5bb7;
+	--op: #b5701f;
+	--slot: #23273a;
+	--slot-border: #3a4060;
+	--danger: #d93f3f;
+	--enemy: #e5534b;
+	--player: #3fb950;
+	--accent: #ffd166;
+	--weak-bg: #2a2540;
+	--weak-border: #6c4fd1;
+	--hit-bg: #3b3318;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: system-ui, sans-serif;
+	-webkit-tap-highlight-color: transparent;
+}
+
+button {
+	font: inherit;
+	touch-action: manipulation;
+}
+
+small {
+	color: var(--muted);
+}
