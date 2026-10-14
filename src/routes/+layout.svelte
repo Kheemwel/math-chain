@@ -19,6 +19,11 @@
 	});
 </script>
 
+<svelte:window
+	oncontextmenu={(e) => e.preventDefault()}
+	ondragstart={(e) => e.preventDefault()}
+/>
+
 <svelte:head>
 	<link rel="icon" href={favicon} />
 	<meta name="theme-color" content="#14161f" />
