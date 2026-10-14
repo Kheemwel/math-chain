@@ -46,6 +46,7 @@
 	},
 	"dependencies": {
 		"@capacitor/core": "^8.5.3",
-		"@capacitor/preferences": "^8.0.1"
+		"@capacitor/preferences": "^8.0.1",
+		"@capacitor/status-bar": "^8.0.4"
 	}
 }
